@@ -7,22 +7,26 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Mail, Lock, LogIn, ArrowLeft } from 'lucide-react-native';
+import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react-native';
 import { Colors, Spacing, BorderRadius } from '../../src/constants/Colors';
 import Button from '../../src/components/common/Button';
 import Input from '../../src/components/common/Input';
 import Header from '../../src/components/common/Header';
+import { useAuth } from '../../src/context/AuthContext';
 
 export default function LoginScreen() {
   const router = useRouter();
   const theme = Colors.light;
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState({});
+  const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
@@ -44,13 +48,18 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    setAuthError('');
     if (!validate()) return;
+
     setLoading(true);
-    // Real auth integration is connected in Commit 3 via AuthContext
-    setTimeout(() => {
-      setLoading(false);
+    const result = await login(email.trim(), password);
+    setLoading(false);
+
+    if (result.success) {
       router.replace('/(tabs)');
-    }, 600);
+    } else {
+      setAuthError(result.error || 'Invalid email or password');
+    }
   };
 
   return (
@@ -75,6 +84,13 @@ export default function LoginScreen() {
             </Text>
           </View>
 
+          {authError ? (
+            <View style={styles.authErrorBox}>
+              <AlertCircle size={20} color={theme.error} />
+              <Text style={styles.authErrorText}>{authError}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.formCard}>
             <Input
               label="Email Address"
@@ -83,6 +99,7 @@ export default function LoginScreen() {
               onChangeText={(text) => {
                 setEmail(text);
                 if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
+                if (authError) setAuthError('');
               }}
               error={errors.email}
               keyboardType="email-address"
@@ -98,6 +115,7 @@ export default function LoginScreen() {
               onChangeText={(text) => {
                 setPassword(text);
                 if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
+                if (authError) setAuthError('');
               }}
               error={errors.password}
               secureTextEntry={true}
@@ -106,7 +124,7 @@ export default function LoginScreen() {
             />
 
             <TouchableOpacity
-              onPress={() => alert('Password reset instructions will be sent to your email.')}
+              onPress={() => Alert.alert('Forgot Password', 'Password reset instructions have been dispatched to your email address.')}
               accessible={true}
               accessibilityRole="button"
               accessibilityLabel="Forgot Password? Request password reset link"
@@ -169,6 +187,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5A6882',
     lineHeight: 20,
+  },
+  authErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: 8,
+  },
+  authErrorText: {
+    flex: 1,
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '600',
   },
   formCard: {
     backgroundColor: '#FFFFFF',

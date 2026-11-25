@@ -10,16 +10,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { User, Mail, Phone, Lock, UserPlus, Check } from 'lucide-react-native';
+import { User, Mail, Phone, Lock, UserPlus, Check, AlertCircle } from 'lucide-react-native';
 import { Colors, Spacing, BorderRadius } from '../../src/constants/Colors';
 import { Config } from '../../src/constants/Config';
 import Button from '../../src/components/common/Button';
 import Input from '../../src/components/common/Input';
 import Header from '../../src/components/common/Header';
+import { useAuth } from '../../src/context/AuthContext';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const theme = Colors.light;
+  const { register } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -28,6 +30,7 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState(Config.ROLES.CANDIDATE);
   const [errors, setErrors] = useState({});
+  const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const roles = [
@@ -38,7 +41,8 @@ export default function RegisterScreen() {
 
   const validate = () => {
     const errs = {};
-    if (!fullName.trim()) errs.fullName = 'Full name is required';
+    if (!fullName.trim()) errs.fullName = 'Full legal name is required';
+
     if (!email.trim()) {
       errs.email = 'Email address is required';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
@@ -66,13 +70,28 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    setAuthError('');
     if (!validate()) return;
+
     setLoading(true);
-    // Real auth integration hooked up in Commit 3 via AuthContext
-    setTimeout(() => {
-      setLoading(false);
-      router.replace('/profile/setup');
-    }, 600);
+    const result = await register({
+      fullName: fullName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      password,
+      role,
+    });
+    setLoading(false);
+
+    if (result.success) {
+      if (role === Config.ROLES.CANDIDATE || role === Config.ROLES.PARENT) {
+        router.replace('/profile/setup');
+      } else {
+        router.replace('/(tabs)');
+      }
+    } else {
+      setAuthError(result.error || 'Registration failed. Please try again.');
+    }
   };
 
   return (
@@ -96,6 +115,13 @@ export default function RegisterScreen() {
               Every Ability Deserves an Opportunity. Select your profile role to begin.
             </Text>
           </View>
+
+          {authError ? (
+            <View style={styles.authErrorBox}>
+              <AlertCircle size={20} color={theme.error} />
+              <Text style={styles.authErrorText}>{authError}</Text>
+            </View>
+          ) : null}
 
           {/* Role Selection */}
           <Text style={styles.roleSectionTitle}>Select Your Role</Text>
@@ -146,6 +172,7 @@ export default function RegisterScreen() {
               onChangeText={(text) => {
                 setFullName(text);
                 if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: null }));
+                if (authError) setAuthError('');
               }}
               error={errors.fullName}
               leftIcon={<User size={20} color={theme.textSecondary} />}
@@ -159,6 +186,7 @@ export default function RegisterScreen() {
               onChangeText={(text) => {
                 setEmail(text);
                 if (errors.email) setErrors((prev) => ({ ...prev, email: null }));
+                if (authError) setAuthError('');
               }}
               error={errors.email}
               keyboardType="email-address"
@@ -174,6 +202,7 @@ export default function RegisterScreen() {
               onChangeText={(text) => {
                 setPhone(text);
                 if (errors.phone) setErrors((prev) => ({ ...prev, phone: null }));
+                if (authError) setAuthError('');
               }}
               error={errors.phone}
               keyboardType="phone-pad"
@@ -188,6 +217,7 @@ export default function RegisterScreen() {
               onChangeText={(text) => {
                 setPassword(text);
                 if (errors.password) setErrors((prev) => ({ ...prev, password: null }));
+                if (authError) setAuthError('');
               }}
               error={errors.password}
               secureTextEntry={true}
@@ -203,6 +233,7 @@ export default function RegisterScreen() {
                 setConfirmPassword(text);
                 if (errors.confirmPassword)
                   setErrors((prev) => ({ ...prev, confirmPassword: null }));
+                if (authError) setAuthError('');
               }}
               error={errors.confirmPassword}
               secureTextEntry={true}
@@ -264,6 +295,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5A6882',
     lineHeight: 20,
+  },
+  authErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: 8,
+  },
+  authErrorText: {
+    flex: 1,
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '600',
   },
   roleSectionTitle: {
     fontSize: 15,
