@@ -318,6 +318,75 @@ const jobController = {
       next(err);
     }
   },
+
+  /**
+   * GET /api/jobs/recommended
+   * Return personalized job recommendations based on candidate profile
+   */
+  async getRecommendedJobs(req, res, next) {
+    try {
+      const userId = req.user?.id;
+      let candidateProfile = {};
+
+      if (userId) {
+        if (isConfigured && supabase) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+          if (data) candidateProfile = data;
+        } else {
+          candidateProfile =
+            (devStore.candidateProfiles && devStore.candidateProfiles.get(userId)) ||
+            (devStore.profiles && devStore.profiles.get(userId)) ||
+            {};
+        }
+      }
+
+      // Fetch all jobs
+      let jobs = [];
+      let savedJobIds = new Set();
+
+      if (isConfigured && supabase) {
+        const { data: jobData, error } = await supabase.from('jobs').select('*');
+        if (error) throw error;
+        jobs = jobData || [];
+
+        if (userId) {
+          const { data: saved } = await supabase
+            .from('saved_jobs')
+            .select('job_id')
+            .eq('user_id', userId);
+          if (saved) savedJobIds = new Set(saved.map((s) => s.job_id));
+        }
+      } else {
+        jobs = Array.from(devStore.jobs.values());
+        if (userId) {
+          Array.from(devStore.savedJobs.values()).forEach((sj) => {
+            if (sj.user_id === userId) savedJobIds.add(sj.job_id);
+          });
+        }
+      }
+
+      // Format jobs with is_saved
+      const formattedJobs = jobs.map((j) => ({
+        ...j,
+        is_saved: savedJobIds.has(j.id),
+      }));
+
+      const { rankJobsForCandidate } = require('../services/matchingService');
+      const ranked = rankJobsForCandidate(candidateProfile, formattedJobs);
+
+      return res.json({
+        success: true,
+        count: ranked.length,
+        data: ranked,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
 };
 
 module.exports = jobController;

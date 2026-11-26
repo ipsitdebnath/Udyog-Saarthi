@@ -18,7 +18,10 @@ router.get('/', optionalAuth, jobController.getJobs);
 // 2. Get saved jobs for current authenticated user
 router.get('/saved', authenticate, jobController.getSavedJobs);
 
-// 3. Get specific job details
+// 3. Get personalized recommendations based on profile
+router.get('/recommended', optionalAuth, jobController.getRecommendedJobs);
+
+// 4. Get specific job details
 router.get('/:id', optionalAuth, jobController.getJobById);
 
 // 4. Save a job

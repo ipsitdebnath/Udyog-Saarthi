@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Briefcase, ArrowUpRight, Sparkles } from 'lucide-react-native';
+import { Briefcase, ArrowUpRight, Sparkles, RefreshCw } from 'lucide-react-native';
 import Card from '../common/Card';
+import JobRecommendationCard from '../jobs/JobRecommendationCard';
+import recommendationService from '../../services/recommendationService';
 import { Colors, BorderRadius, Spacing } from '../../constants/Colors';
 
 export default function RecommendedJobsSection({
@@ -13,27 +15,34 @@ export default function RecommendedJobsSection({
   const router = useRouter();
   const theme = highContrast ? Colors.highContrast : Colors.light;
 
-  const sampleOpportunities = [
-    {
-      id: 'job-1',
-      title: 'Data Processing Assistant',
-      org: 'Staff Selection Commission (Govt of India)',
-      reservation: '4% Quota: Autism, Specific Learning Disability',
-      location: 'New Delhi & Regional Offices',
-      tag: 'Verified Govt Opportunity',
-    },
-    {
-      id: 'job-2',
-      title: 'Office Attendant & Digital Scribe',
-      org: 'National Institute for Empowerment (NIEPMD)',
-      reservation: 'Eligible: Multiple Disabilities, Intellectual Disability',
-      location: 'Chennai / Regional Hubs',
-      tag: 'Accommodations Provided',
-    },
-  ];
+  const [recommendations, setRecommendations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchRecommendations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await recommendationService.getRecommendations();
+      if (res.success && res.data) {
+        setRecommendations(res.data.slice(0, 3)); // Top 3 recommendations for dashboard
+      } else {
+        setError(res.error || 'Failed to load recommendations');
+      }
+    } catch (err) {
+      setError(err.message || 'Error connecting to recommendations engine');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, []);
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text
@@ -44,16 +53,17 @@ export default function RecommendedJobsSection({
           >
             Recommended Opportunities
           </Text>
-          <View style={styles.previewBadge}>
-            <Text style={styles.previewBadgeText}>Day 2 Preview</Text>
+          <View style={styles.aiBadge}>
+            <Sparkles size={11} color="#059669" />
+            <Text style={styles.aiBadgeText}>AI Match</Text>
           </View>
         </View>
 
         <TouchableOpacity
-          onPress={() => router.push('/(tabs)/jobs')}
+          onPress={() => (onViewAllPress ? onViewAllPress() : router.push('/(tabs)/jobs'))}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel="View all job opportunities"
+          accessibilityLabel="Explore all job opportunities"
           style={styles.viewAllBtn}
         >
           <Text
@@ -74,62 +84,50 @@ export default function RecommendedJobsSection({
           { color: theme.textSecondary, fontSize: 12 * fontScale },
         ]}
       >
-        Sample opportunities matched against 4% reservation provisions:
+        Personalized opportunities matching your education, location and 4% reservation quotas:
       </Text>
 
-      {sampleOpportunities.map((opp) => (
-        <Card
-          key={opp.id}
-          style={styles.oppCard}
-          highContrast={highContrast}
-          onPress={() => router.push('/(tabs)/jobs')}
-          accessibilityLabel={`${opp.title} at ${opp.org}. ${opp.reservation}`}
-        >
-          <View style={styles.oppTagRow}>
-            <View style={styles.tagPill}>
-              <Sparkles size={11} color={theme.secondary} />
-              <Text style={styles.tagText}>{opp.tag}</Text>
-            </View>
-          </View>
-
-          <Text
-            style={[
-              styles.oppTitle,
-              { color: theme.primary, fontSize: 15 * fontScale },
-            ]}
-          >
-            {opp.title}
+      {/* Content */}
+      {loading ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="small" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
+            Matching opportunities to your profile...
           </Text>
-
-          <Text
-            style={[
-              styles.oppOrg,
-              { color: theme.text, fontSize: 13 * fontScale },
-            ]}
+        </View>
+      ) : error ? (
+        <Card style={styles.errorCard}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            onPress={fetchRecommendations}
+            style={styles.retryBtn}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading recommendations"
           >
-            {opp.org}
-          </Text>
-
-          <View style={styles.reservationBox}>
-            <Text
-              style={[
-                styles.reservationText,
-                { color: theme.textSecondary, fontSize: 12 * fontScale },
-              ]}
-            >
-              🎯 {opp.reservation}
-            </Text>
-            <Text
-              style={[
-                styles.locationText,
-                { color: theme.textSecondary, fontSize: 12 * fontScale },
-              ]}
-            >
-              📍 {opp.location}
-            </Text>
-          </View>
+            <RefreshCw size={14} color={theme.primary} />
+            <Text style={[styles.retryText, { color: theme.primary }]}>Retry</Text>
+          </TouchableOpacity>
         </Card>
-      ))}
+      ) : recommendations.length === 0 ? (
+        <Card style={styles.emptyCard}>
+          <Briefcase size={28} color="#64748B" />
+          <Text style={styles.emptyTitle}>No matching jobs right now</Text>
+          <Text style={styles.emptySub}>
+            Explore all opportunities in the Jobs tab to find active vacancies.
+          </Text>
+        </Card>
+      ) : (
+        recommendations.map((rec, index) => (
+          <JobRecommendationCard
+            key={rec.job?.id || index}
+            job={rec.job}
+            matchScore={rec.matchScore}
+            matchReasons={rec.matchReasons}
+            fontScale={fontScale}
+          />
+        ))
+      )}
     </View>
   );
 }
@@ -152,14 +150,19 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontWeight: '700',
   },
-  previewBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 6,
+  aiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
     paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
-  previewBadgeText: {
-    color: '#B45309',
+  aiBadgeText: {
+    color: '#065F46',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -167,6 +170,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    paddingVertical: 4,
   },
   viewAllText: {
     fontWeight: '600',
@@ -175,43 +179,53 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 16,
   },
-  oppCard: {
-    marginBottom: Spacing.sm,
-  },
-  oppTagRow: {
+  loadingBox: {
     flexDirection: 'row',
-    marginBottom: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: Spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  tagPill: {
+  loadingText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  errorCard: {
+    alignItems: 'center',
+    padding: Spacing.md,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E0F2F1',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: BorderRadius.sm,
+    padding: 6,
   },
-  tagText: {
-    color: '#0E635C',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  oppTitle: {
+  retryText: {
     fontWeight: '700',
-    marginBottom: 2,
+    fontSize: 12,
   },
-  oppOrg: {
-    fontWeight: '500',
-    marginBottom: 6,
+  emptyCard: {
+    alignItems: 'center',
+    padding: Spacing.lg,
   },
-  reservationBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 8,
-    borderRadius: BorderRadius.sm,
-    gap: 2,
+  emptyTitle: {
+    fontWeight: '700',
+    color: '#172033',
+    marginTop: 8,
+    marginBottom: 4,
   },
-  reservationText: {
-    fontWeight: '500',
+  emptySub: {
+    color: '#64748B',
+    fontSize: 12,
+    textAlign: 'center',
   },
-  locationText: {},
 });
