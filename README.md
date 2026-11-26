@@ -5,7 +5,7 @@
 **Official Project Title:** Udyog Saarthi App - Progressive Web-based Application for Adults undergoing Job Coaching for opportunities under 4% reservation in NIEPMD and other Institutions.  
 **Sponsoring Organization:** Ministry of Social Justice and Empowerment, Government of India.  
 **Domain:** Smart Automation / Social Impact / Accessible Employment.  
-**Primary Framework:** Cross-platform Mobile Application using React Native and Expo (SDK 52).
+**Primary Framework:** Cross-platform Mobile Application using React Native and Expo (SDK 58).
 
 ---
 
@@ -321,8 +321,11 @@ EXPO_PUBLIC_API_URL=http://localhost:5000/api
 
 ### Backend (`server/.env`):
 ```env
-PORT=5000
+PORT=5001
 NODE_ENV=development
+
+# Google Gemini API
+GEMINI_API_KEY=your-gemini-api-key-here
 
 # Supabase Credentials
 SUPABASE_URL=https://your-project.supabase.co
@@ -335,25 +338,87 @@ DATABASE_URL=postgresql://postgres.your-project:your-password@aws-0-region.poole
 
 ---
 
+## 🚀 Day 2 Development Achievements: Opportunity Explorer & AI Job Assistance
+
+On **Day 2: Employment Opportunity Explorer + AI Job Assistance**, the complete employment ecosystem was delivered:
+
+### 1. Module A: Mobile Opportunity Explorer (`app/(tabs)/jobs.js`)
+- Full opportunity discovery experience with debounced multi-keyword search (title, organization, skills).
+- Sector filtering chips: **All**, **Government**, **Public Sector Undertakings (PSUs)**, and **Private Sector**.
+- Comprehensive filter modal (`JobFilters`) supporting location, minimum qualification, and verified disability categories.
+- Saved jobs bookmarking toggle with instant local reflection and backend persistence.
+- Reusable UI cards: `JobCard`, `SectorBadge`, `DeadlineBadge`, `EligibilityCard`, `JobRecommendationCard`, `EmptyState`.
+
+### 2. Module B: Database Architecture & Row-Level Security
+- Migration `002_jobs_and_applications.sql`:
+  - `jobs`: Stores verified vacancy data, educational criteria, reservation details, scribes, pay scale, official application portal URLs, and source verification dates.
+  - `saved_jobs`: User bookmarks with unique `(user_id, job_id)` constraint and strict RLS policies.
+  - `job_applications`: Application lifecycle tracking from `saved` to `placed`.
+- Migration `003_reminders.sql`:
+  - `reminders`: Scheduled deadline countdowns and exam reminders with RLS protection.
+
+### 3. Module C: Sample Opportunities (Realistic & Verified Demo Data)
+- 10 comprehensive sample listings spanning Government (NIEPMD, SSC, Postal), PSU (NTPC, BHEL, SBI, IOCL), and Private Sector (Lemon Tree, Tata Communications, Enable India partner network).
+- All sample listings clearly tagged with visible `DEMO DATA` banners.
+- No invented reservations or active circulars; strict adherence to official 4% PwD reservation standards under the RPwD Act 2016.
+
+### 4. Module D: AI-Powered Notification Simplification (`/api/ai/simplify`)
+- Express proxy route integrating Google Gemini (`gemini-1.5-flash`).
+- Protects API keys on the server; mobile client never exposes secret credentials.
+- Translates dense, bureaucratic gazette circulars into plain language bullet points:
+  - Simple Title & Role Meaning
+  - Who Can Apply (Eligibility summary)
+  - Required Skills
+  - Critical Application Deadlines
+  - Required Scanned Documents & UDID Proof
+  - Step-by-Step Application Instructions
+  - Important Legal & Reservation Disclaimers
+- Built-in Text-to-Speech (TTS) using `expo-speech` with Read Aloud toggle and pause/stop controls.
+
+### 5. Module E: Transparent Personalized Matching Engine (`/api/jobs/recommended`)
+- Evaluates candidate education, registered skills, preferred region, and sector interest.
+- **Strict Accessibility Guardrail:** Disability category is **NEVER** used as a penalty; reservation quotas expand candidate opportunities.
+- Delivers transparent match scores (60% - 98%) with itemized human-readable match explanations (`matchReasons`).
+- Integrated into both the Candidate Dashboard (`RecommendedJobsSection.js`) and Opportunities explorer.
+
+### 6. Module F: Application Recording and Tracking (`app/applications/`)
+- Candidates record external government portal submissions with registration numbers, roll numbers, and scribe requests.
+- Multi-stage tracker supporting: `Saved` → `Applied` → `Examination` → `Interview` → `Selected / Placed`.
+- Dashboard summary stage counters synced to backend `/api/applications/stats`.
+- Application detail view (`app/applications/[id].js`) with timeline updates and direct links back to official recruitment portals.
+
+### 7. Module G: Application Deadline Reminders (`/api/reminders`)
+- Deadline urgency indicators for vacancies closing within 14 days.
+- 1-tap "Remind Me 3 Days Before Deadline" scheduling directly on the job detail screen.
+- Backend calendar reminders API (`GET`, `POST`, `DELETE /api/reminders`).
+
+---
+
 ## 🧪 Verification & Automated Testing Results
 
 The project has been verified with end-to-end automated test suites:
 
-- **Syntax & Compilation Test:** All 36 JavaScript files across `app/`, `src/`, and `server/` validated using Babel (`babel-preset-expo`) and Node.js VM.
+- **Syntax & Compilation Test:** All JavaScript and JSX files across `app/`, `src/`, and `server/` validated using Babel (`babel-preset-expo`) and Node.js VM.
 - **REST API End-to-End Suite:**
   - `GET  /api/health` -> **PASSED** (200 OK)
-  - `POST /api/auth/register` -> **PASSED** (201 Created)
-  - `GET  /api/auth/me` -> **PASSED** (Unauthorized 401 on missing token; 200 OK on authenticated token)
-  - `GET  /api/profile/me` -> **PASSED** (200 OK)
-  - `POST /api/profile/me` -> **PASSED** (200 OK, full multi-section save)
-  - `Database Persistence Verification` -> **PASSED** (Full candidate education and disability accommodations verified)
+  - `GET  /api/jobs` -> **PASSED** (200 OK, verified 10 demo opportunities)
+  - `GET  /api/jobs?sector=Government` -> **PASSED** (200 OK, verified sector filtering)
+  - `GET  /api/jobs/:id` -> **PASSED** (200 OK, full reservation & qualification details)
+  - `POST /api/jobs/:id/save` -> **PASSED** (201 Created, bookmarked)
+  - `DELETE /api/jobs/:id/save` -> **PASSED** (200 OK, unbookmarked)
+  - `POST /api/ai/simplify` -> **PASSED** (200 OK, verified structured plain-language summary)
+  - `GET  /api/jobs/recommended` -> **PASSED** (200 OK, verified transparent scoring & reasons)
+  - `POST /api/applications` -> **PASSED** (201 Created, application submission logged)
+  - `GET  /api/applications/stats` -> **PASSED** (200 OK, stage metrics calculated)
+  - `PATCH /api/applications/:id` -> **PASSED** (200 OK, status moved to examination)
+  - `POST /api/reminders` -> **PASSED** (201 Created, deadline reminder set)
+  - `DELETE /api/reminders/:id` -> **PASSED** (200 OK, reminder deleted)
 
 ---
 
 ## 📋 Git Commit History
 
-The Day 1 roadmap was completed via **8 structured, verified Git commits**:
-
+### Day 1 Commits:
 1. `cde1d76` - `chore: initialize Udyog Saarthi Expo project`
 2. `78cac7e` - `feat: establish mobile design system and navigation`
 3. `a407337` - `feat: implement Supabase authentication`
@@ -361,13 +426,22 @@ The Day 1 roadmap was completed via **8 structured, verified Git commits**:
 5. `526c92b` - `feat: build personalized candidate dashboard`
 6. `3a2ce6b` - `feat: implement candidate learning and employment profile`
 7. `c1324f6` - `feat: implement mobile accessibility controls`
-8. `chore: complete Day 1 mobile foundation` *(Final consolidation)*
+8. `44439c0` - `chore: complete Day 1 mobile foundation`
+
+### Day 2 Commits:
+1. `bc841ce` - `feat: implement job database and opportunity APIs`
+2. `e2d18f0` - `feat: build mobile opportunity explorer`
+3. `4e43ca8` - `feat: implement detailed job information screens`
+4. `29ec610` - `feat: integrate Gemini AI job notification simplification`
+5. `d3a4088` - `feat: implement personalized job recommendations`
+6. `4e1f40c` - `feat: implement job application tracking`
+7. `215d2af` - `feat: add application deadline reminders`
+8. `chore: complete Day 2 employment ecosystem` *(Final consolidation)*
 
 ---
 
-## 🔮 Roadmap: Upcoming Modules (Day 2+)
+## 🔮 Roadmap: Upcoming Modules (Day 3+)
 
-- **Day 2:** Opportunity Explorer with AI-powered government notification simplifier and 4% reservation matching.
 - **Day 3:** Saarthi Learning Center with practice tests, adaptive quizzes, and model question papers.
 - **Day 4:** Job Coach Connect: 1-on-1 coaching requests, accommodation requests, and mentor chat.
 - **Day 5:** Employment Journey Tracker integration & offline synchronization with SQLite.
