@@ -436,6 +436,38 @@ const devStore = {
       },
     ],
   ]),
+
+  // Reminders map: key is id
+  reminders: new Map([
+    [
+      'rem-001',
+      {
+        id: 'rem-001',
+        user_id: '00000000-0000-0000-0000-000000000001',
+        job_id: '00000000-0000-0000-0000-000000000101',
+        title: 'NIEPMD Examination Date Reminder',
+        reminder_date: new Date('2026-12-15T09:00:00Z').toISOString(),
+        reminder_type: 'exam',
+        notes: 'CBT examination with NVDA screen reader assistance at Center #4, Delhi.',
+        is_completed: false,
+        created_at: new Date().toISOString(),
+      },
+    ],
+    [
+      'rem-002',
+      {
+        id: 'rem-002',
+        user_id: '00000000-0000-0000-0000-000000000001',
+        job_id: '00000000-0000-0000-0000-000000000102',
+        title: 'SSC Application Closing Deadline',
+        reminder_date: new Date('2026-12-20T23:59:59Z').toISOString(),
+        reminder_type: 'deadline',
+        notes: 'Final date to submit online application form.',
+        is_completed: false,
+        created_at: new Date().toISOString(),
+      },
+    ],
+  ]),
 };
 
 module.exports = {

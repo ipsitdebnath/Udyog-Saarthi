@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bookmark, Sparkles, Filter, Briefcase } from 'lucide-react-native';
+import { Bookmark, Sparkles, Filter, Briefcase, Clock, BellRing } from 'lucide-react-native';
 import Header from '../../src/components/common/Header';
 import JobSearchBar from '../../src/components/jobs/JobSearchBar';
 import JobCard from '../../src/components/jobs/JobCard';
@@ -315,6 +315,17 @@ export default function JobsScreen() {
           </View>
         )}
 
+        {/* Deadline Urgency Banner */}
+        {activeTab === 'all' && (
+          <View style={styles.deadlineUrgencyBanner}>
+            <BellRing size={16} color="#B45309" />
+            <Text style={[styles.deadlineUrgencyText, { fontSize: 12 * fontScale }]}>
+              <Text style={{ fontWeight: '700' }}>Important Notice: </Text>
+              Upcoming government & PSU deadlines closing this month. Tap any opportunity to set calendar reminders.
+            </Text>
+          </View>
+        )}
+
         {/* Job List / Loading / Empty State */}
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
@@ -473,6 +484,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#DC2626',
     fontWeight: '700',
+  },
+  deadlineUrgencyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+    marginBottom: Spacing.sm,
+  },
+  deadlineUrgencyText: {
+    color: '#92400E',
+    flex: 1,
+    lineHeight: 16,
   },
   listContent: {
     paddingBottom: Spacing.xl,

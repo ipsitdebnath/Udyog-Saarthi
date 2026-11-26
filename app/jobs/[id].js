@@ -32,6 +32,8 @@ import {
   FileCheck,
   Volume2,
   VolumeX,
+  Bell,
+  BellRing,
 } from 'lucide-react-native';
 import Header from '../../src/components/common/Header';
 import Card from '../../src/components/common/Card';
@@ -43,6 +45,7 @@ import { useAccessibility } from '../../src/context/AccessibilityContext';
 import jobService from '../../src/services/jobService';
 import aiService from '../../src/services/aiService';
 import applicationService from '../../src/services/applicationService';
+import reminderService from '../../src/services/reminderService';
 import { formatDateWithRelative } from '../../src/utils/jobHelpers';
 import { Colors, BorderRadius, Spacing } from '../../src/constants/Colors';
 
@@ -70,6 +73,10 @@ export default function JobDetailsScreen() {
   const [recordNotes, setRecordNotes] = useState('');
   const [recordingApp, setRecordingApp] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
+
+  // Deadline reminder state
+  const [reminderSet, setReminderSet] = useState(false);
+  const [reminderLoading, setReminderLoading] = useState(false);
 
   // Fetch job detail
   useEffect(() => {
@@ -205,6 +212,41 @@ export default function JobDetailsScreen() {
     }
   };
 
+  // Set Deadline Reminder
+  const handleSetReminder = async () => {
+    if (!job?.application_deadline) {
+      Alert.alert('Notice', 'No specific deadline specified for this vacancy.');
+      return;
+    }
+    try {
+      setReminderLoading(true);
+      const deadlineDate = new Date(job.application_deadline);
+      const reminderDate = new Date(deadlineDate.getTime() - 3 * 24 * 60 * 60 * 1000);
+      const res = await reminderService.createReminder({
+        jobId: job.id,
+        title: `${job.title} Deadline Reminder`,
+        reminderDate: reminderDate.toISOString(),
+        reminderType: 'deadline',
+        notes: `Application closes on ${deadlineDate.toLocaleDateString()}. Make sure your forms and UDID documents are uploaded.`,
+      });
+      if (res.success) {
+        setReminderSet(true);
+        if (soundAssistance) speak('Deadline reminder set for 3 days before closing date');
+        Alert.alert(
+          'Reminder Set!',
+          `You will receive a notification 3 days prior to the deadline on ${reminderDate.toLocaleDateString()}.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', res.error || 'Failed to schedule reminder');
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setReminderLoading(false);
+    }
+  };
+
   // Toggle Read Aloud with Text-to-Speech
   const handleToggleReadAloud = () => {
     if (isSpeaking) {
@@ -335,6 +377,37 @@ export default function JobDetailsScreen() {
               {job.location} • {job.employment_type || 'Regular / Full-time'}
             </Text>
           </View>
+
+          {/* Deadline Reminder Row */}
+          {job.application_deadline && (
+            <TouchableOpacity
+              onPress={handleSetReminder}
+              disabled={reminderSet || reminderLoading}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={reminderSet ? 'Deadline reminder is active' : 'Set a reminder 3 days before deadline'}
+              style={[
+                styles.reminderBtn,
+                reminderSet && styles.reminderBtnActive,
+              ]}
+            >
+              {reminderSet ? (
+                <>
+                  <BellRing size={14} color="#059669" />
+                  <Text style={[styles.reminderBtnText, { color: '#059669' }]}>
+                    Reminder Active (3 Days Before Deadline)
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Bell size={14} color="#2457A6" />
+                  <Text style={[styles.reminderBtnText, { color: '#2457A6' }]}>
+                    {reminderLoading ? 'Setting Reminder...' : 'Remind Me (3 Days Before Deadline)'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* Source Verification Badge */}
           <View style={styles.verificationRow}>
@@ -1177,6 +1250,26 @@ const styles = StyleSheet.create({
   recordActionsRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  reminderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  reminderBtnActive: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  reminderBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   loadingText: {
     marginTop: 12,
