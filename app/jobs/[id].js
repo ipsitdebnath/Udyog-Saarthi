@@ -30,6 +30,8 @@ import {
   Users,
   Eye,
   FileCheck,
+  Volume2,
+  VolumeX,
 } from 'lucide-react-native';
 import Header from '../../src/components/common/Header';
 import Card from '../../src/components/common/Card';
@@ -39,6 +41,7 @@ import DeadlineBadge from '../../src/components/jobs/DeadlineBadge';
 import EligibilityCard from '../../src/components/jobs/EligibilityCard';
 import { useAccessibility } from '../../src/context/AccessibilityContext';
 import jobService from '../../src/services/jobService';
+import aiService from '../../src/services/aiService';
 import { formatDateWithRelative } from '../../src/utils/jobHelpers';
 import { Colors, BorderRadius, Spacing } from '../../src/constants/Colors';
 
@@ -59,6 +62,7 @@ export default function JobDetailsScreen() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState(null);
   const [aiError, setAiError] = useState(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   // Fetch job detail
   useEffect(() => {
@@ -163,7 +167,20 @@ export default function JobDetailsScreen() {
     }
   };
 
-  // Trigger AI Simplification (calls backend service in Commit 4)
+  // Toggle Read Aloud with Text-to-Speech
+  const handleToggleReadAloud = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      setIsSpeaking(false);
+    } else if (aiData) {
+      const datesSummary = aiData.importantDates?.map((d) => `${d.label}: ${d.date}`).join('. ') || '';
+      const textToRead = `${aiData.simpleTitle || job.title}. ${aiData.whatThisJobMeans}. Who can apply: ${aiData.whoCanApply?.join(', ')}. Skills required: ${aiData.skillsRequired?.join(', ')}. Important dates: ${datesSummary}. Steps to apply: ${aiData.stepsToApply?.join('. ')}. Disclaimer: ${aiData.disclaimer}`;
+      speak(textToRead);
+      setIsSpeaking(true);
+    }
+  };
+
+  // Trigger AI Simplification (calls backend service)
   const handleSimplifyWithAI = async () => {
     setAiModalVisible(true);
     if (aiData) return; // already loaded
@@ -171,8 +188,6 @@ export default function JobDetailsScreen() {
     setAiLoading(true);
     setAiError(null);
     try {
-      // Lazy load aiService
-      const aiService = require('../../src/services/aiService').default;
       const res = await aiService.simplifyJob(job.id);
       if (res.success && res.data) {
         setAiData(res.data);
@@ -180,34 +195,7 @@ export default function JobDetailsScreen() {
         setAiError(res.error || 'Failed to simplify notification');
       }
     } catch (err) {
-      // Graceful fallback structure for Day 2 testing if AI backend is yet being connected
-      setAiData({
-        simpleTitle: job.title,
-        whatThisJobMeans:
-          job.simplified_description ||
-          `This role at ${job.organization} involves performing duties in ${job.location}. You will work in the ${job.sector} sector with structured support.`,
-        whoCanApply: job.education_requirements || ['Candidates matching qualification criteria'],
-        skillsRequired: job.required_skills || ['Basic professional knowledge'],
-        importantDates: [
-          {
-            label: 'Application Deadline',
-            date: job.application_deadline ? new Date(job.application_deadline).toLocaleDateString() : 'See notification',
-          },
-        ],
-        documentsRequired: job.required_documents || ['Photo ID', 'Educational Certificates', 'UDID Card'],
-        stepsToApply: [
-          'Read the official notification details',
-          'Ensure your UDID / Disability certificate is ready',
-          'Click Apply through Official Portal',
-          'Submit the application and note your registration number',
-        ],
-        thingsToRemember: [
-          'Verify all dates with the official notification',
-          job.reservation_details?.ageRelaxation || 'PwD candidates are eligible for relaxation as per norms',
-        ],
-        disclaimer:
-          'This is a simplified AI explanation. Always verify eligibility and procedures using the official recruitment notification.',
-      });
+      setAiError(err.message || 'Error connecting to Saarthi AI service');
     } finally {
       setAiLoading(false);
     }
@@ -522,8 +510,26 @@ export default function JobDetailsScreen() {
             showBack
             onBack={() => {
               stopSpeaking();
+              setIsSpeaking(false);
               setAiModalVisible(false);
             }}
+            rightAction={
+              aiData ? (
+                <TouchableOpacity
+                  onPress={handleToggleReadAloud}
+                  accessible={true}
+                  accessibilityRole="button"
+                  accessibilityLabel={isSpeaking ? 'Stop reading aloud' : 'Read simplified summary aloud'}
+                  style={styles.headerActionBtn}
+                >
+                  {isSpeaking ? (
+                    <VolumeX size={22} color="#DC2626" />
+                  ) : (
+                    <Volume2 size={22} color="#2457A6" />
+                  )}
+                </TouchableOpacity>
+              ) : null
+            }
           />
 
           {aiLoading ? (
@@ -538,6 +544,27 @@ export default function JobDetailsScreen() {
                 <Text style={styles.aiHeaderTitle}>{aiData.simpleTitle || job.title}</Text>
                 <Text style={styles.aiHeaderSub}>{aiData.whatThisJobMeans}</Text>
               </View>
+
+              {/* Listen Aloud Button Pill */}
+              <TouchableOpacity
+                onPress={handleToggleReadAloud}
+                style={[styles.listenPill, isSpeaking && styles.listenPillActive]}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={isSpeaking ? 'Stop speech readout' : 'Listen to simplified summary'}
+              >
+                {isSpeaking ? (
+                  <>
+                    <VolumeX size={18} color="#DC2626" />
+                    <Text style={[styles.listenText, { color: '#DC2626' }]}>Stop Reading Aloud</Text>
+                  </>
+                ) : (
+                  <>
+                    <Volume2 size={18} color="#2457A6" />
+                    <Text style={styles.listenText}>Listen to Summary Aloud (TTS)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
 
               {/* Who Can Apply */}
               <View style={styles.aiSection}>
@@ -977,6 +1004,27 @@ const styles = StyleSheet.create({
     color: '#92400E',
     fontSize: 11,
     lineHeight: 15,
+  },
+  listenPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginBottom: Spacing.md,
+  },
+  listenPillActive: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  listenText: {
+    color: '#2457A6',
+    fontWeight: '700',
+    fontSize: 13,
   },
   loadingText: {
     marginTop: 12,

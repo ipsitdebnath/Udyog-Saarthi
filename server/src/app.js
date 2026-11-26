@@ -3,6 +3,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const jobRoutes = require('./routes/jobRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { isConfigured, supabase } = require('./config/database');
 
@@ -37,6 +38,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 Route handler
 app.use((req, res) => {
