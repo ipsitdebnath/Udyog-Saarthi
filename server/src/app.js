@@ -4,6 +4,7 @@ const authRoutes = require('./routes/authRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const applicationRoutes = require('./routes/applicationRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const { isConfigured, supabase } = require('./config/database');
 
@@ -39,6 +40,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/applications', applicationRoutes);
 
 // 404 Route handler
 app.use((req, res) => {

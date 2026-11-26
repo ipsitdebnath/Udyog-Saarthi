@@ -1,38 +1,72 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { FileCheck, Clock, Award, Building2 } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
+import { FileCheck, Clock, Award, Building2, ChevronRight } from 'lucide-react-native';
 import Card from '../common/Card';
+import applicationService from '../../services/applicationService';
 import { Colors, BorderRadius, Spacing } from '../../constants/Colors';
 
 export default function ApplicationProgressCard({
   highContrast = false,
   fontScale = 1,
 }) {
+  const router = useRouter();
   const theme = highContrast ? Colors.highContrast : Colors.light;
 
+  const [stats, setStats] = useState({
+    total: 0,
+    saved: 0,
+    applied: 0,
+    examination: 0,
+    interview: 0,
+    placed: 0,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStats = async () => {
+      try {
+        const res = await applicationService.getApplicationStats();
+        if (isMounted && res.success && res.data) {
+          setStats(res.data);
+        }
+      } catch (err) {
+        console.warn('Error loading application stats:', err);
+      }
+    };
+    fetchStats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const stages = [
-    { label: 'Saved', count: 3, active: false },
-    { label: 'Applied', count: 2, active: false },
-    { label: 'Exam', count: 1, active: true },
-    { label: 'Interview', count: 0, active: false },
-    { label: 'Placed', count: 0, active: false },
+    { label: 'Saved', count: stats.saved || 0, active: false },
+    { label: 'Applied', count: stats.applied || 0, active: stats.applied > 0 },
+    { label: 'Exam', count: stats.examination || 0, active: stats.examination > 0 },
+    { label: 'Interview', count: stats.interview || 0, active: stats.interview > 0 },
+    { label: 'Placed', count: stats.placed || 0, active: stats.placed > 0 },
   ];
 
   return (
     <Card
       style={styles.card}
       highContrast={highContrast}
-      accessibilityLabel="Employment Journey Tracker. 1 application in examination stage"
+      onPress={() => router.push('/applications')}
+      accessibilityLabel={`Employment Journey Tracker. ${stats.total} recorded applications. Tap to view tracker.`}
     >
       <View style={styles.header}>
-        <Text
-          style={[
-            styles.title,
-            { color: theme.text, fontSize: 16 * fontScale },
-          ]}
-        >
-          Employment Journey Tracker
-        </Text>
+        <View style={styles.headerTitleRow}>
+          <Text
+            style={[
+              styles.title,
+              { color: theme.text, fontSize: 16 * fontScale },
+            ]}
+          >
+            Employment Journey Tracker
+          </Text>
+          <ChevronRight size={18} color="#64748B" />
+        </View>
         <Text
           style={[
             styles.sub,
@@ -45,7 +79,7 @@ export default function ApplicationProgressCard({
 
       {/* Stage Flow Counters */}
       <View style={styles.flowRow}>
-        {stages.map((stage, idx) => (
+        {stages.map((stage) => (
           <View key={stage.label} style={styles.stageCol}>
             <View
               style={[
@@ -125,9 +159,14 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 12,
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
   title: {
     fontWeight: '700',
-    marginBottom: 2,
   },
   sub: {
     lineHeight: 16,

@@ -42,6 +42,7 @@ import EligibilityCard from '../../src/components/jobs/EligibilityCard';
 import { useAccessibility } from '../../src/context/AccessibilityContext';
 import jobService from '../../src/services/jobService';
 import aiService from '../../src/services/aiService';
+import applicationService from '../../src/services/applicationService';
 import { formatDateWithRelative } from '../../src/utils/jobHelpers';
 import { Colors, BorderRadius, Spacing } from '../../src/constants/Colors';
 
@@ -63,6 +64,12 @@ export default function JobDetailsScreen() {
   const [aiData, setAiData] = useState(null);
   const [aiError, setAiError] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Application recording modal state
+  const [recordModalVisible, setRecordModalVisible] = useState(false);
+  const [recordNotes, setRecordNotes] = useState('');
+  const [recordingApp, setRecordingApp] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
 
   // Fetch job detail
   useEffect(() => {
@@ -164,6 +171,37 @@ export default function JobDetailsScreen() {
       }
     } catch (err) {
       Alert.alert('Error', err.message);
+    }
+  };
+
+  // Record an application submission
+  const handleRecordApplication = async () => {
+    setRecordingApp(true);
+    try {
+      const res = await applicationService.recordApplication({
+        jobId: job.id,
+        status: 'applied',
+        notes: recordNotes.trim() || 'Applied via recruitment portal',
+      });
+      if (res.success) {
+        setHasApplied(true);
+        setRecordModalVisible(false);
+        if (soundAssistance) speak('Application recorded in your journey tracker');
+        Alert.alert(
+          'Application Recorded!',
+          'Your submission has been logged into the Employment Journey Tracker. You can monitor examination dates and admit cards anytime.',
+          [
+            { text: 'Stay Here', style: 'cancel' },
+            { text: 'View Tracker', onPress: () => router.push('/applications') },
+          ]
+        );
+      } else {
+        Alert.alert('Error', res.error || 'Failed to record application');
+      }
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setRecordingApp(false);
     }
   };
 
@@ -480,21 +518,82 @@ export default function JobDetailsScreen() {
         <Button
           title={job.is_saved ? 'Saved' : 'Save'}
           variant="outline"
-          size="md"
-          icon={job.is_saved ? <BookmarkCheck size={18} color={theme.primary} /> : <Bookmark size={18} color={theme.primary} />}
+          size="sm"
+          icon={job.is_saved ? <BookmarkCheck size={16} color={theme.primary} /> : <Bookmark size={16} color={theme.primary} />}
           onPress={handleToggleSave}
           style={styles.saveBtn}
         />
 
         <Button
-          title="Apply on Official Portal"
+          title={hasApplied ? 'Applied ✓' : 'Record'}
+          variant="secondary"
+          size="sm"
+          icon={<FileCheck size={16} color="#0E635C" />}
+          onPress={() => setRecordModalVisible(true)}
+          style={styles.recordBtn}
+        />
+
+        <Button
+          title="Apply on Portal"
           variant="primary"
-          size="md"
-          icon={<ExternalLink size={18} color="#FFFFFF" />}
+          size="sm"
+          icon={<ExternalLink size={16} color="#FFFFFF" />}
           onPress={handleOpenApplicationPortal}
           style={styles.applyBtn}
         />
       </View>
+
+      {/* Record Application Modal */}
+      <Modal
+        visible={recordModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setRecordModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.recordSheet}>
+            <View style={styles.recordHeader}>
+              <FileCheck size={22} color="#059669" />
+              <Text style={[styles.recordTitle, { fontSize: 17 * fontScale }]}>
+                Record Application Submission
+              </Text>
+            </View>
+            <Text style={styles.recordSub}>
+              Applied on the official {job.organization} portal? Save your registration ID or notes here to track examination dates and admit cards.
+            </Text>
+
+            <TextInput
+              value={recordNotes}
+              onChangeText={setRecordNotes}
+              placeholder="e.g. Reg ID: SSC-2026-9021. Exam center selected: Delhi."
+              placeholderTextColor="#94A3B8"
+              multiline
+              numberOfLines={3}
+              style={styles.recordInput}
+              accessible={true}
+              accessibilityLabel="Application registration number or notes input"
+            />
+
+            <View style={styles.recordActionsRow}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                size="md"
+                onPress={() => setRecordModalVisible(false)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title={recordingApp ? 'Saving...' : 'Confirm'}
+                variant="primary"
+                size="md"
+                onPress={handleRecordApplication}
+                disabled={recordingApp}
+                style={{ flex: 1.5 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* AI Simplification Modal */}
       <Modal
@@ -1025,6 +1124,59 @@ const styles = StyleSheet.create({
     color: '#2457A6',
     fontWeight: '700',
     fontSize: 13,
+  },
+  recordBtn: {
+    flex: 1.2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.md,
+  },
+  recordSheet: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: Spacing.lg,
+    width: '100%',
+    maxWidth: 420,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  recordHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  recordTitle: {
+    fontWeight: '800',
+    color: '#172033',
+  },
+  recordSub: {
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  recordInput: {
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: BorderRadius.md,
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    minHeight: 70,
+    textAlignVertical: 'top',
+    color: '#172033',
+    marginBottom: 14,
+  },
+  recordActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
   loadingText: {
     marginTop: 12,
